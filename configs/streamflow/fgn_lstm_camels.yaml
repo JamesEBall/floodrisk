@@ -1,0 +1,38 @@
+trainer:
+  lr: 0.001
+  epochs: 50
+  batch_size: 64
+  device: mps
+  grad_clip: 1.0
+  early_stopping_patience: 10
+  checkpoint_dir: checkpoints/fgn_lstm_camels
+  log_interval: 5
+  scheduler: plateau
+  scheduler_patience: 5
+  scheduler_factor: 0.5
+  weight_decay: 0.00001
+
+data:
+  dataset: camels
+  data_dir: data/camels
+  basins: all
+  seq_length: 365
+  forecast_horizon: 1
+  train_start: "1980-10-01"
+  train_end: "1995-09-30"
+  val_start: "1995-10-01"
+  val_end: "2000-09-30"
+  test_start: "2000-10-01"
+  test_end: "2008-09-30"
+
+model:
+  type: fgn_lstm
+  hidden_size: 256
+  num_layers: 2
+  dropout: 0.2
+  noise_dim: 32
+  n_ensemble: 2
+
+output_dir: outputs/fgn_lstm_camels
+cache_dir: cache
+seed: 42

@@ -3,6 +3,8 @@
 MODEL_REGISTRY = {
     "lstm": "floodrisk.models.lstm.CatchmentLSTM",
     "transformer": "floodrisk.models.transformer.CatchmentTransformer",
+    "fgn_lstm": "floodrisk.models.fgn_streamflow.FGNStreamflowLSTM",
+    "fgn_transformer": "floodrisk.models.fgn_streamflow.FGNStreamflowTransformer",
 }
 
 

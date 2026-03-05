@@ -31,6 +31,8 @@ class ModelConfig:
     hidden_size: int = 256
     num_layers: int = 2
     dropout: float = 0.2
+    noise_dim: int = 32
+    n_ensemble: int = 2
 
 
 @dataclass

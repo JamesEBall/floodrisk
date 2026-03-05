@@ -8,8 +8,10 @@ FloodRisk builds a modular, config-driven research pipeline that connects atmosp
 
 **Key features:**
 - LSTM and Transformer models for multi-basin streamflow forecasting
+- **FGN probabilistic models** — noise-injected LSTM/Transformer for ensemble forecasts via Functional Generative Networks (adapted from WeatherNext 2)
 - CAMELS-US (671 basins) and Caravan (6,830+ global basins) dataset support
 - Nash-Sutcliffe Efficiency (NSE) loss and Kling-Gupta Efficiency (KGE) metrics
+- **CRPS loss and ensemble metrics** for probabilistic forecast evaluation
 - Optional NeuralGCM precipitation integration (decoupled JAX process)
 - Config-driven experiments via YAML
 - Flood event verification metrics (CSI, POD, FAR)
@@ -38,7 +40,11 @@ python scripts/download_camels.py --output_dir data/camels
 ### 2. Train a streamflow model
 
 ```bash
+# Deterministic LSTM
 python scripts/train_streamflow.py --config configs/streamflow/lstm_camels.yaml
+
+# Probabilistic FGN-LSTM (ensemble forecasts with CRPS loss)
+python scripts/train_streamflow.py --config configs/streamflow/fgn_lstm_camels.yaml
 ```
 
 ### 3. Evaluate
@@ -66,8 +72,8 @@ ERA5 / CAMELS forcing data
          |
          v
   +--------------+
-  |   Trainer    |  Trainer.fit() with NSELoss
-  |              |  Metrics: NSE, KGE, CSI
+  |   Trainer    |  NSELoss (deterministic) or CRPSLoss (FGN)
+  |              |  Metrics: NSE, KGE, CRPS, Spread-Skill
   +------+-------+
          |
          v
@@ -83,7 +89,7 @@ ERA5 / CAMELS forcing data
 floodrisk/
   config.py              # ExperimentConfig (composes TrainerConfig)
   torchharness.py        # Vendored training harness (Trainer, Metric, Callback)
-  losses.py              # NSELoss
+  losses.py              # NSELoss, CRPSLoss
   data/
     camels.py            # CAMELS-US loader (671 basins)
     normalization.py     # Per-basin & global normalization
@@ -96,9 +102,11 @@ floodrisk/
   models/
     lstm.py              # CatchmentLSTM
     transformer.py       # CatchmentTransformer
+    fgn_streamflow.py    # FGNStreamflowLSTM, FGNStreamflowTransformer (probabilistic)
   metrics/
     hydrology.py         # NSE, KGE
     flood_event.py       # CSI, POD, FAR
+    ensemble.py          # CRPS, Spread-Skill, EnsembleNSE
   callbacks/
     hydro_logger.py      # Hydrograph visualization callback
   neuralgcm_bridge/
@@ -133,10 +141,13 @@ data:
   train_end: "1995-09-30"
 
 model:
-  type: lstm
+  type: lstm           # or fgn_lstm, transformer, fgn_transformer
   hidden_size: 256
   num_layers: 2
   dropout: 0.2
+  # FGN-specific (probabilistic models only):
+  # noise_dim: 32
+  # n_ensemble: 2
 ```
 
 ## Testing
@@ -145,10 +156,19 @@ model:
 pytest tests/ -v
 ```
 
+## Probabilistic Forecasting (FGN)
+
+The FGN (Functional Generative Network) models adapt the approach from WeatherNext 2 for streamflow forecasting. A low-dimensional noise vector `z ~ N(0, I)` is injected via conditional LayerNorm layers throughout the network. Different noise samples produce different ensemble members from the same model in a single forward pass.
+
+- **Training**: Uses fair CRPS loss with N=2 ensemble members per sample
+- **Inference**: Sample N=50 noise vectors for full ensemble prediction
+- **Models**: `fgn_lstm` and `fgn_transformer` available via config
+
 ## References
 
 - Kratzert et al. (2024). "Caravan - A global community dataset for large-sample hydrology"
 - Kochkov et al. (2024). "Neural General Circulation Models for Weather and Climate"
+- Price et al. (2025). "Probabilistic weather forecasting with machine learning" (FGN / WeatherNext 2)
 - Newman et al. (2015). "CAMELS: Catchment Attributes and Meteorology for Large-sample Studies"
 
 ## License

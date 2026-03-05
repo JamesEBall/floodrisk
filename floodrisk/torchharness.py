@@ -23,6 +23,10 @@ class TrainerConfig:
     early_stopping_patience: int = 10
     checkpoint_dir: str = "checkpoints"
     log_interval: int = 10
+    scheduler: str = "none"
+    scheduler_patience: int = 5
+    scheduler_factor: float = 0.5
+    weight_decay: float = 0.0
 
 
 class Metric(ABC):
@@ -76,9 +80,27 @@ class Trainer:
         self.loss_fn = loss_fn
         self.metrics = metrics or []
         self.callbacks = callbacks or []
-        self.device = torch.device(config.device if torch.cuda.is_available() or config.device == "cpu" else "cpu")
+        device_str = config.device
+        if device_str == "cuda" and not torch.cuda.is_available():
+            device_str = "mps" if torch.backends.mps.is_available() else "cpu"
+        elif device_str == "mps" and not torch.backends.mps.is_available():
+            device_str = "cpu"
+        self.device = torch.device(device_str)
         self.model.to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=config.lr)
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=config.lr, weight_decay=config.weight_decay
+        )
+
+        # LR scheduler
+        self.scheduler = None
+        if config.scheduler == "plateau":
+            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode="min",
+                factor=config.scheduler_factor,
+                patience=config.scheduler_patience,
+            )
+
         self.best_val_loss = float("inf")
         self.patience_counter = 0
         self.current_epoch = 0
@@ -107,8 +129,12 @@ class Trainer:
                 metric_str = " | ".join(f"{k}: {v:.4f}" for k, v in {**train_metrics, **val_metrics}.items())
                 logger.info(f"Epoch {epoch}/{self.config.epochs} | {metric_str}")
 
-            # Early stopping
+            # LR scheduler step
             val_loss = val_metrics.get("val_loss", float("inf"))
+            if self.scheduler is not None:
+                self.scheduler.step(val_loss)
+
+            # Early stopping
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.patience_counter = 0
@@ -128,11 +154,16 @@ class Trainer:
         self.model.train()
         total_loss = 0.0
         n_batches = 0
+        _is_ensemble = hasattr(self.model, "ensemble_forward")
         for x, y in self.train_loader:
             x, y = x.to(self.device), y.to(self.device)
             self.optimizer.zero_grad()
-            preds = self.model(x)
-            loss = self.loss_fn(preds, y)
+            if _is_ensemble:
+                preds = self.model.ensemble_forward(x)
+                loss = self.loss_fn(preds, y)
+            else:
+                preds = self.model(x)
+                loss = self.loss_fn(preds, y)
             loss.backward()
             if self.config.grad_clip > 0:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip)
@@ -146,16 +177,27 @@ class Trainer:
         self.model.eval()
         total_loss = 0.0
         n_batches = 0
+        _is_ensemble = hasattr(self.model, "ensemble_forward")
         for m in self.metrics:
             m.reset()
         for x, y in self.val_loader:
             x, y = x.to(self.device), y.to(self.device)
-            preds = self.model(x)
-            loss = self.loss_fn(preds, y)
+            if _is_ensemble:
+                preds = self.model.ensemble_forward(x)
+                loss = self.loss_fn(preds, y)
+                preds_mean = preds.mean(dim=1)
+            else:
+                preds = self.model(x)
+                loss = self.loss_fn(preds, y)
+                preds_mean = preds
             total_loss += loss.item()
             n_batches += 1
             for m in self.metrics:
-                m.update(preds, y)
+                # Pass full ensemble to metrics that accept it, mean otherwise
+                if _is_ensemble and hasattr(m, 'update') and preds.dim() == 3:
+                    m.update(preds, y)
+                else:
+                    m.update(preds_mean, y)
         result = {"val_loss": total_loss / max(n_batches, 1)}
         for m in self.metrics:
             result[m.name] = m.compute()
