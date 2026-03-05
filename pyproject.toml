@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "floodrisk"
+version = "0.1.0"
+description = "End-to-end ML flood forecasting pipeline coupling NeuralGCM precipitation with hydrological models"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    {name = "FloodRisk Contributors"},
+]
+dependencies = [
+    "torch>=2.0",
+    "torchharness",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "xarray>=2023.1",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+neuralgcm = [
+    "neuralgcm",
+    "jax[cpu]",
+    "dinosaur",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+include = ["floodrisk*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
