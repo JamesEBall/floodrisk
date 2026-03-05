@@ -1,0 +1,32 @@
+trainer:
+  lr: 0.0005
+  epochs: 150
+  batch_size: 128
+  device: cuda
+  grad_clip: 1.0
+  early_stopping_patience: 15
+  checkpoint_dir: checkpoints/transformer_camels
+  log_interval: 10
+
+data:
+  dataset: camels
+  data_dir: data/camels
+  basins: all
+  seq_length: 365
+  forecast_horizon: 1
+  train_start: "1980-10-01"
+  train_end: "1995-09-30"
+  val_start: "1995-10-01"
+  val_end: "2000-09-30"
+  test_start: "2000-10-01"
+  test_end: "2014-09-30"
+
+model:
+  type: transformer
+  hidden_size: 128
+  num_layers: 3
+  dropout: 0.1
+
+output_dir: outputs/transformer_camels
+cache_dir: cache
+seed: 42

@@ -1,0 +1,32 @@
+trainer:
+  lr: 0.0001
+  epochs: 50
+  batch_size: 32
+  device: cuda
+  grad_clip: 0.5
+  early_stopping_patience: 10
+  checkpoint_dir: checkpoints/neuralgcm_precip
+  log_interval: 5
+
+data:
+  dataset: era5
+  data_dir: data/era5
+  basins: all
+  seq_length: 72
+  forecast_horizon: 24
+  train_start: "2000-01-01"
+  train_end: "2018-12-31"
+  val_start: "2019-01-01"
+  val_end: "2020-12-31"
+  test_start: "2021-01-01"
+  test_end: "2023-12-31"
+
+model:
+  type: neuralgcm
+  hidden_size: 512
+  num_layers: 4
+  dropout: 0.1
+
+output_dir: outputs/neuralgcm_precip
+cache_dir: cache
+seed: 42

@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "floodrisk"
@@ -14,7 +14,6 @@ authors = [
 ]
 dependencies = [
     "torch>=2.0",
-    "torchharness",
     "numpy>=1.24",
     "pandas>=2.0",
     "xarray>=2023.1",
